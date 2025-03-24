@@ -122,7 +122,7 @@ app.post("/posts", authMiddleware, async (req, res) => {
 // Get all posts
 app.get("/posts", authMiddleware, async (req, res) => {
   try {
-    const posts = await Post.find().populate("postedBy", "name");
+    const posts = await Post.find().populate("postedBy", "name profileImageUrl");
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
