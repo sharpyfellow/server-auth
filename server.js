@@ -142,6 +142,25 @@ app.delete("/posts/:id", authMiddleware, async (req, res) => {
   }
 });
 
+
+app.put("/posts/:id", authMiddleware, async (req, res) => {
+  const { title, description } = req.body;
+  try {
+    const post = await Post.findById(req.params.id);
+    if (post.postedBy.toString() !== req.user.id) {
+      return res.status(401).json({ message: "Du har ikke tillatelse" });
+    }
+
+    post.title = title;
+    post.description = description;
+    await post.save();
+
+    res.json({ message: "Post oppdatert", post });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
