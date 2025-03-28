@@ -107,19 +107,22 @@ app.put("/users/:id", authMiddleware, async (req, res) => {
 
 // Create a new post
 app.post("/posts", authMiddleware, async (req, res) => {
-  const { title, description } = req.body;
-  const postedBy = req.user.id;
-
+  const { title, description, imageUrl } = req.body;
   try {
-    const post = new Post({ title, description, postedBy });
-    await post.save();
-    res.status(201).json(post);
+    const newPost = new Post({
+      title,
+      description,
+      imageUrl,
+      postedBy: req.user.id,
+    });
+    await newPost.save();
+    res.status(201).json(newPost);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get all posts
+// Get all posts and populate imageUrl and postedBy fields
 app.get("/posts", authMiddleware, async (req, res) => {
   try {
     const posts = await Post.find().populate("postedBy", "name profileImageUrl");
@@ -128,6 +131,26 @@ app.get("/posts", authMiddleware, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Get a single post by ID and populate imageUrl and postedBy fields
+app.put("/posts/:id", authMiddleware, async (req, res) => {
+  const { title, description } = req.body;
+  try {
+    const post = await Post.findById(req.params.id);
+    if (post.postedBy.toString() !== req.user.id) {
+      return res.status(401).json({ message: "Du har ikke tillatelse" });
+    }
+
+    post.title = title;
+    post.description = description;
+    await post.save();
+
+    res.json({ message: "Post oppdatert", post });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // Delete a post by ID
 app.delete("/posts/:id", authMiddleware, async (req, res) => {
