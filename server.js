@@ -1,128 +1,108 @@
 const express = require("express");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const dotenv = require("dotenv");
 const mongoose = require("mongoose");
+const cors = require("cors");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const cloudinary = require("cloudinary").v2;
-const User = require("./models/User"); // Adjust the path as necessary
-const Post = require("./models/Post"); // Adjust the path as necessary
-const authMiddleware = require("./middleware/authMiddleware"); // Adjust the path as necessary
+const User = require("./models/User");
+const Post = require("./models/Post");
+require("dotenv").config();
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
-// Configure Cloudinary
-cloudinary.config({ 
-  cloud_name:process.env.CLOUDINARY_CLOUD_NAME,
+// Cloudinary config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
-
 });
 
-dotenv.config();
+// Middleware
+const authMiddleware = async (req, res, next) => {
+  const token = req.headers["authorization"]?.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "Ingen token oppgitt" });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(401).json({ message: "Ugyldig token" });
+  }
+};
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URL)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((error) => console.log(error.message));
+const adminMiddleware = async (req, res, next) => {
+  const currentUser = await User.findById(req.user.id);
+  if (!currentUser?.isAdmin) {
+    return res.status(403).json({ message: "Kun administratorer har tilgang" });
+  }
+  next();
+};
 
-
-// Register endpoint
+// Register
 app.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hashedPassword, name });
-    await user.save();
-    res.status(201).json({ message: "User registered successfully" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  const hashed = await bcrypt.hash(password, 10);
+  const newUser = new User({ name, email, password: hashed });
+  await newUser.save();
+  res.status(201).json({ message: "User registered", userId: newUser._id });
 });
 
-app.get(("/"), (req, res) => {
-  res.send("Hello from auth server");
-}
-);
-
-
-// Login endpoint
+// Login
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ error: "Invalid email or password" });
-    }
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: "Invalid email or password" });
-    }
-    const token = jwt.sign({ id: user._id }, "your_jwt_secret", {
-      expiresIn: "1h",
-    });
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        profileImageUrl: user.profileImageUrl,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+  const user = await User.findOne({ email });
+  if (!user) return res.status(401).json({ message: "Invalid credentials" });
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+  res.status(200).json({ _id: user._id, name: user.name, email: user.email, isAdmin: user.isAdmin, profileImageUrl: user.profileImageUrl, token });
 });
 
-// Get a single user by ID
+// GET bruker (auth)
 app.get("/users/:id", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
     res.status(200).json(user);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Update user profile image
+// Oppdater bruker (profilbilde)
 app.put("/users/:id", authMiddleware, async (req, res) => {
-  const { id } = req.params;
-  const { profileImageUrl } = req.body;
-
   try {
-    const user = await User.findByIdAndUpdate(
-      id,
-      { profileImageUrl },
-      { new: true }
-    );
-    res.json(user);
+    const user = await User.findByIdAndUpdate(req.params.id, { profileImageUrl: req.body.profileImageUrl }, { new: true });
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Hent alle brukere
+app.get("/users", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Create a new post
-app.post("/posts", authMiddleware, async (req, res) => {
-  const { title, description, imageUrl } = req.body;
+// Admin: Slett bruker + poster
+app.delete("/users/:id", authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const newPost = new Post({
-      title,
-      description,
-      imageUrl,
-      postedBy: req.user.id,
-    });
-    await newPost.save();
-    res.status(201).json(newPost);
+    const userId = req.params.id;
+    await Post.deleteMany({ postedBy: userId });
+    await User.findByIdAndDelete(userId);
+    res.status(200).json({ message: "Bruker og poster slettet" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get all posts and populate imageUrl and postedBy fields
+// POSTS
 app.get("/posts", authMiddleware, async (req, res) => {
   try {
     const posts = await Post.find().populate("postedBy", "name profileImageUrl");
@@ -132,60 +112,40 @@ app.get("/posts", authMiddleware, async (req, res) => {
   }
 });
 
-// Get a single post by ID and populate imageUrl and postedBy fields
-app.put("/posts/:id", authMiddleware, async (req, res) => {
-  const { title, description } = req.body;
+app.post("/posts", authMiddleware, async (req, res) => {
+  const { title, description, imageUrl } = req.body;
   try {
-    const post = await Post.findById(req.params.id);
-    if (post.postedBy.toString() !== req.user.id) {
-      return res.status(401).json({ message: "Du har ikke tillatelse" });
-    }
-
-    post.title = title;
-    post.description = description;
-    await post.save();
-
-    res.json({ message: "Post oppdatert", post });
+    const newPost = new Post({ title, description, imageUrl, postedBy: req.user.id });
+    await newPost.save();
+    res.status(201).json(newPost);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
+app.put("/posts/:id", authMiddleware, async (req, res) => {
+  try {
+    const post = await Post.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.status(200).json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-// Delete a post by ID
 app.delete("/posts/:id", authMiddleware, async (req, res) => {
   try {
-    const post = await Post.findByIdAndDelete(req.params.id);
-    if (!post) {
-      return res.status(404).json({ error: "Post not found" });
-    }
-    res.status(200).json({ message: "Post deleted successfully" });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
+    await Post.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: "Post deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-
-app.put("/posts/:id", authMiddleware, async (req, res) => {
-  const { title, description } = req.body;
-  try {
-    const post = await Post.findById(req.params.id);
-    if (post.postedBy.toString() !== req.user.id) {
-      return res.status(401).json({ message: "Du har ikke tillatelse" });
-    }
-
-    post.title = title;
-    post.description = description;
-    await post.save();
-
-    res.json({ message: "Post oppdatert", post });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Connect DB and start server
+mongoose.connect(process.env.MONGO_URL)
+  .then(() => {
+    app.listen(process.env.PORT || 3000, () => {
+      console.log("Server is running...");
+    });
+  })
+  .catch((err) => console.error("DB connection error:", err));
