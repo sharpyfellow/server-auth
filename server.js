@@ -40,6 +40,28 @@ const adminMiddleware = async (req, res, next) => {
   next();
 };
 
+
+// Kommentarer til poster
+app.post("/posts/:id/comments", authMiddleware, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post ikke funnet" });
+
+    const comment = {
+      text: req.body.text,
+      commentedBy: req.user.id,
+    };
+
+    post.comments.push(comment);
+    await post.save();
+    res.status(200).json(post);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+
 // Register
 app.post("/register", async (req, res) => {
   const { name, email, password } = req.body;

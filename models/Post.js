@@ -1,22 +1,27 @@
 const mongoose = require("mongoose");
 
-//schema
 const postSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: [true, "please add post title"],
-    },
-    description: {
-      type: String,
-      required: [true, "please add post description"],
-    },
+    title: String,
+    description: String,
     imageUrl: String,
     postedBy: {
-      type: mongoose.Schema.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
     },
+    comments: [
+      {
+        text: String,
+        commentedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );
