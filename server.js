@@ -124,10 +124,12 @@ app.delete("/users/:id", authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
-// POSTS
+// Get all posts
 app.get("/posts", authMiddleware, async (req, res) => {
   try {
-    const posts = await Post.find().populate("postedBy", "name profileImageUrl");
+    const posts = await Post.find()
+      .populate("postedBy", "name profileImageUrl")
+      .populate("comments.commentedBy", "name profileImageUrl");
     res.status(200).json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
