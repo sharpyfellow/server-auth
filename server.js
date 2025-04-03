@@ -92,15 +92,26 @@ app.get("/users/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Oppdater bruker (profilbilde)
+// Oppdater bruker (profil)
 app.put("/users/:id", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { profileImageUrl: req.body.profileImageUrl }, { new: true });
+    const updates = {};
+    if (req.body.name) updates.name = req.body.name;
+    if (req.body.email) updates.email = req.body.email;
+    if (req.body.profileImageUrl) updates.profileImageUrl = req.body.profileImageUrl;
+    if (req.body.password) {
+      const hashed = await bcrypt.hash(req.body.password, 10);
+      updates.password = hashed;
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true });
     res.status(200).json(user);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
+
+
 
 // Admin: Hent alle brukere
 app.get("/users", authMiddleware, adminMiddleware, async (req, res) => {
