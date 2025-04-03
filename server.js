@@ -147,6 +147,7 @@ app.post("/posts", authMiddleware, async (req, res) => {
   }
 });
 
+
 app.put("/posts/:id", authMiddleware, async (req, res) => {
   try {
     const post = await Post.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -164,6 +165,24 @@ app.delete("/posts/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Hent enkelt post med kommentarer og brukerdata
+app.get("/posts/:id", authMiddleware, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate("postedBy", "name profileImageUrl")
+      .populate("comments.commentedBy", "name profileImageUrl");
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    res.status(200).json(post);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // Connect DB and start server
 mongoose.connect(process.env.MONGO_URL)
