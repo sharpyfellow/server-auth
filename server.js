@@ -174,6 +174,34 @@ app.put("/posts/:postId/comments/:commentId", authMiddleware, async (req, res) =
   }
 });
 
+// Ny rute i server.js for å slette kommentarer
+
+// DELETE /posts/:postId/comments/:commentId
+app.delete("/posts/:postId/comments/:commentId", authMiddleware, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ message: "Post ikke funnet" });
+
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ message: "Kommentar ikke funnet" });
+
+    if (comment.commentedBy.toString() !== req.user.id)
+      return res.status(403).json({ message: "Ingen tilgang til å slette denne kommentaren" });
+
+    comment.remove();
+    await post.save();
+
+    await post.populate("postedBy", "name profileImageUrl");
+    await post.populate("comments.commentedBy", "name profileImageUrl");
+    res.status(200).json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+
 // Like/unlike post
 app.post("/posts/:id/like", authMiddleware, async (req, res) => {
   try {
