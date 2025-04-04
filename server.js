@@ -7,6 +7,13 @@ const cloudinary = require("cloudinary").v2;
 const User = require("./models/User");
 const Post = require("./models/Post");
 
+
+
+
+require("dotenv").config();
+
+const app = express();
+
 // Legges til i server.js (etter import av Post-modellen)
 
 // Like a post
@@ -33,9 +40,6 @@ app.post("/posts/:id/like", authMiddleware, async (req, res) => {
 
 
 
-require("dotenv").config();
-
-const app = express();
 app.use(cors());
 app.use(express.json());
 
