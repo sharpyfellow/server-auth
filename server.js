@@ -6,6 +6,33 @@ const jwt = require("jsonwebtoken");
 const cloudinary = require("cloudinary").v2;
 const User = require("./models/User");
 const Post = require("./models/Post");
+
+// Legges til i server.js (etter import av Post-modellen)
+
+// Like a post
+app.post("/posts/:id/like", authMiddleware, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+
+    const userId = req.user.id;
+    const alreadyLiked = post.likes?.includes(userId);
+
+    if (alreadyLiked) {
+      post.likes = post.likes.filter((id) => id.toString() !== userId);
+    } else {
+      post.likes = [...(post.likes || []), userId];
+    }
+
+    await post.save();
+    res.status(200).json(post);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+
 require("dotenv").config();
 
 const app = express();
