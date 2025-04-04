@@ -174,9 +174,9 @@ app.put("/posts/:postId/comments/:commentId", authMiddleware, async (req, res) =
   }
 });
 
-// Ny rute i server.js for å slette kommentarer
+//Oppdatert slett-kommentar-rute i server.js
+// Tillater sletting hvis bruker er eier av kommentaren ELLER er admin
 
-// DELETE /posts/:postId/comments/:commentId
 app.delete("/posts/:postId/comments/:commentId", authMiddleware, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -185,19 +185,24 @@ app.delete("/posts/:postId/comments/:commentId", authMiddleware, async (req, res
     const comment = post.comments.id(req.params.commentId);
     if (!comment) return res.status(404).json({ message: "Kommentar ikke funnet" });
 
-    if (comment.commentedBy.toString() !== req.user.id)
+    const isOwner = comment.commentedBy.toString() === req.user.id;
+    const isAdmin = req.user.isAdmin;
+
+    if (!isOwner && !isAdmin)
       return res.status(403).json({ message: "Ingen tilgang til å slette denne kommentaren" });
 
     comment.remove();
     await post.save();
-
+// 
     await post.populate("postedBy", "name profileImageUrl");
     await post.populate("comments.commentedBy", "name profileImageUrl");
+
     res.status(200).json(post);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 
