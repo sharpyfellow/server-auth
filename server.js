@@ -164,6 +164,8 @@ app.post("/posts/:id/like", authMiddleware, async (req, res) => {
     }
 
     await post.save();
+    await post.populate("postedBy", "name profileImageUrl");
+    await post.populate("comments.commentedBy", "name profileImageUrl");
     res.status(200).json(post);
   } catch (error) {
     res.status(500).json({ error: error.message });
