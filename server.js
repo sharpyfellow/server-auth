@@ -8,11 +8,12 @@ const User = require("./models/User");
 const Post = require("./models/Post");
 
 
-
-
 require("dotenv").config();
 
 const app = express();
+app.use(cors());
+app.use(express.json());
+
 
 // Legges til i server.js (etter import av Post-modellen)
 
@@ -37,11 +38,6 @@ app.post("/posts/:id/like", authMiddleware, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-
-
-app.use(cors());
-app.use(express.json());
 
 // Cloudinary config
 cloudinary.config({
