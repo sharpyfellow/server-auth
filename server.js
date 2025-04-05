@@ -90,6 +90,17 @@ app.post("/login", async (req, res) => {
   });
 });
 
+// ✅ Ny admin-rute for å hente alle brukere
+
+app.get("/users", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Update user profile
 app.put("/users/:id", authMiddleware, async (req, res) => {
