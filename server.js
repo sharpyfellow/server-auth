@@ -25,14 +25,27 @@ const authMiddleware = async (req, res, next) => {
 };
 
 // Admin middleware
-const adminMiddleware = async (req, res, next) => {
-  const user = await User.findById(req.user.id);
-  if (user && user.isAdmin) {
+// const adminMiddleware = async (req, res, next) => {
+//   const user = await User.findById(req.user.id);
+//   if (user && user.isAdmin) {
+//     next();
+//   } else {
+//     res.status(403).json({ message: "Access denied" });
+//   }
+// };
+
+// ✅ Forenklet adminMiddleware med rask JWT-sjekk
+
+const adminMiddleware = (req, res, next) => {
+  if (req.user && req.user.isAdmin) {
     next();
   } else {
     res.status(403).json({ message: "Access denied" });
   }
 };
+
+
+
 
 // Register
 app.post("/register", async (req, res) => {
