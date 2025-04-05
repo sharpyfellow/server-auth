@@ -191,11 +191,12 @@ app.put("/posts/:postId/comments/:commentId", authMiddleware, async (req, res) =
   }
 });
 
-//Oppdatert slett-kommentar-rute i server.js
-// Tillater sletting hvis bruker er eier av kommentaren ELLER er admin
+// ✅ Oppdatering av slett kommentar-rute med logging og robusthet
 
 app.delete("/posts/:postId/comments/:commentId", authMiddleware, async (req, res) => {
   try {
+    console.log("req.user:", req.user); // 👈 Viktig debug
+
     const post = await Post.findById(req.params.postId);
     if (!post) return res.status(404).json({ message: "Post ikke funnet" });
 
@@ -210,16 +211,15 @@ app.delete("/posts/:postId/comments/:commentId", authMiddleware, async (req, res
 
     comment.remove();
     await post.save();
-// 
+
     await post.populate("postedBy", "name profileImageUrl");
     await post.populate("comments.commentedBy", "name profileImageUrl");
-
     res.status(200).json(post);
   } catch (err) {
+    console.error("Feil ved sletting av kommentar:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
 
 
 
