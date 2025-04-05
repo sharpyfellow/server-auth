@@ -121,16 +121,24 @@ app.put("/users/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Create post
+// ✅ Populer 'postedBy' når ny post lages
+
 app.post("/posts", authMiddleware, async (req, res) => {
   try {
-    const post = new Post({ ...req.body, postedBy: req.user.id });
-    await post.save();
-    res.status(201).json(post);
+    const newPost = new Post({
+      title: req.body.title,
+      description: req.body.description,
+      imageUrl: req.body.imageUrl,
+      postedBy: req.user.id,
+    });
+    await newPost.save();
+    await newPost.populate("postedBy", "name profileImageUrl");
+    res.status(201).json(newPost);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // Get all posts
 app.get("/posts", authMiddleware, async (req, res) => {
