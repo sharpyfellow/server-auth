@@ -51,15 +51,32 @@ app.post("/register", async (req, res) => {
 });
 
 // Login
+// Oppdatert login-rute i server.js – inkluderer isAdmin i token
+
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
   if (!user) return res.status(401).json({ message: "Invalid credentials" });
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  res.status(200).json({ _id: user._id, name: user.name, email: user.email, isAdmin: user.isAdmin, profileImageUrl: user.profileImageUrl, token });
+
+  // ✅ Inkluderer isAdmin i token-payload:
+  const token = jwt.sign(
+    { id: user._id, isAdmin: user.isAdmin },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  res.status(200).json({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    isAdmin: user.isAdmin,
+    profileImageUrl: user.profileImageUrl,
+    token,
+  });
 });
+
 
 // Update user profile
 app.put("/users/:id", authMiddleware, async (req, res) => {
