@@ -191,11 +191,13 @@ app.put("/posts/:postId/comments/:commentId", authMiddleware, async (req, res) =
   }
 });
 
-// ✅ Oppdatering av slett kommentar-rute med logging og robusthet
+
+
+// ✅ Fikset sletting av kommentar – byttet .remove() med pull()
 
 app.delete("/posts/:postId/comments/:commentId", authMiddleware, async (req, res) => {
   try {
-    console.log("req.user:", req.user); // 👈 Viktig debug
+    console.log("req.user:", req.user);
 
     const post = await Post.findById(req.params.postId);
     if (!post) return res.status(404).json({ message: "Post ikke funnet" });
@@ -209,7 +211,8 @@ app.delete("/posts/:postId/comments/:commentId", authMiddleware, async (req, res
     if (!isOwner && !isAdmin)
       return res.status(403).json({ message: "Ingen tilgang til å slette denne kommentaren" });
 
-    comment.remove();
+    // 💥 Bruk pull i stedet for remove:
+    post.comments.pull(comment._id);
     await post.save();
 
     await post.populate("postedBy", "name profileImageUrl");
@@ -220,6 +223,7 @@ app.delete("/posts/:postId/comments/:commentId", authMiddleware, async (req, res
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 
