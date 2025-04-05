@@ -177,17 +177,21 @@ app.delete("/posts/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Add comment
+// ✅ Fullfør populating av kommentarer ved opprettelse
+
 app.post("/posts/:id/comments", authMiddleware, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     post.comments.push({ text: req.body.text, commentedBy: req.user.id });
     await post.save();
+    await post.populate("postedBy", "name profileImageUrl");
+    await post.populate("comments.commentedBy", "name profileImageUrl");
     res.status(201).json(post);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 // Oppdatering i server.js for å redigere kommentar
